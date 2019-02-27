@@ -1,16 +1,79 @@
 from smartcard.System import readers
-r=readers()
-connection=r[0].createConnection()
-connection.connect()
+import sys
+import string 
+import struct 
 
-CLASS_APPLET = 0xB1
-INS_GET_NAME = 0x00
-INS_SET_NAME = 0x01
+alphabet = string.ascii_letters
+DEBUG = 1
+def debug(*args):
+    if DEBUG:
+        print("[DEBUG]", *args)
 
 
-#Selection AID
-data, sw1, sw2 = connection.transmit([0x00,0xA4,0x04,0x00,0x08,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x09])
+def h2a(h):
+    """Hex to array"""
+    if len(h)%2 != 0:
+        raise Exception("h must be hex and length multiple of 2")
+    return [int(h[i:i+2], 16) for i in range(0,len(h),2)]
 
+def a2h(a):
+    return "".join([hex(e)[2:].zfill(2) for e in a])
+
+
+# INSTALL THE APPLET HELPER
+if len(sys.argv) == 2  and sys.argv[1] == "install":
+    print("Client Rock Saclay Installation Helper")
+    # Get ID
+    while True:
+        id = input("Donnez l'id: ")
+        if not id.isdigit():
+            print("Id doit être un numéro")
+            continue
+        id = int(id)
+        if id <0 or id > 65535:
+            print("Id doit etre entre 0 et 65535")
+            continue
+        break
+    
+    # Get PIN
+    while True:
+        pin = input("Donnez pin: ")
+        if not pin.isdigit():
+            print("PIN doit être un numéro")
+            continue
+        pin = int(pin)
+        if pin <0 or pin > 9999:
+            print("PIN doit etre entre 0 et 9999")
+            continue
+        break
+    
+    # Get Name
+    while True:
+        # Encoding?
+        name = input("Donnez le nom: ")
+        if len(name) >= 15:
+            print("Le nom doit pas depasser les 15 caractères")
+            continue
+        good_alpha = True
+        for e in name:
+            if e not in alphabet:
+                print("Le nom peut pas contenir des caractères spécieaux")
+                good_alpha = False
+                break
+        if not good_alpha:
+            continue
+        break
+    print(id, pin, name)
+    id = struct.pack("!H", id)
+    pin = struct.pack("!H", pin)
+    name_length = struct.pack("B", len(name))
+    name = name.encode()
+    args = id+pin+name_length+name
+    debug("param array", args)
+    args = a2h(args)
+    debug("param hex", args)
+    print("gp -v --install RockSaclay221.cap --params", args)
+    exit()
 
 def array2str(a):
     return "".join([chr(e) for e in a])
@@ -29,9 +92,46 @@ def set_name(name):
     print(a)
     connection.transmit(a)
 
-if __name__ == "__main__":
-    print("Hello", get_name())
-    set_name("nazime")
-    print("Hello", get_name())
 
-connection.disconnect()
+
+
+class ClientRockSaclay(object):
+    # Const
+    CLASS_APPLET = 0xB0
+    AID = h2a("0102030405060710")
+    SELECT = h2a("00A4040008")
+    # Instructions
+    INS_CHECK_PIN = 0x00
+    INS_DEBITER_ARGENT = 0x01
+
+    
+    
+
+    def __init__(self):
+        self.connection = readers()[0].createConnection()
+        self.connection.connect()
+    
+    def transmit(self, *args):
+        arg = []
+        for e in args:
+            if isinstance(e, list):
+                arg += e
+            elif isinstance(e, str):
+                arg += h2a(e)
+            else:
+                raise Exception(f"can't hadnle type {type(e)} in transmit")
+        debug("transmit", arg)
+        data, sw1, sw2 = self.connection.transmit(arg)
+        if sw1 != 0x90 and sw2 != 0x00:
+            raise Exception(f"Code error not OK code {hex(sw1)} {hex(sw2)}")
+        return data
+
+
+    def select(self):
+        self.transmit(ClientRockSaclay.SELECT, ClientRockSaclay.AID)
+
+if __name__ == "__main__":
+    debug("test")
+    client = ClientRockSaclay()
+    client.select()
+    
