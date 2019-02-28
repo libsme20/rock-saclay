@@ -24,6 +24,9 @@ class ClientRockSaclay(object):
     INS_GET_NAME = 0x03
     INS_GET_ID = 0x04
     INS_GET_CREDITS = 0x05
+    INS_GET_TRIES_REMAINING = 0x06
+    INS_GET_SIGNATURE = 0x07
+
 
     def __init__(self):
         # Constructeur
@@ -75,10 +78,20 @@ class ClientRockSaclay(object):
         data = self.instruction(ClientRockSaclay.INS_GET_CREDITS)
         return struct.unpack("!H", bytes(data))[0]
 
+    def get_tries_remaning(self):
+        data = self.instruction(ClientRockSaclay.INS_GET_TRIES_REMAINING)
+        return struct.unpack("!B", bytes(data))[0]
+
     def debit_credits(self, debit):
         debit = struct.pack("!H",debit)
         self.instruction(ClientRockSaclay.INS_DEBIT_CREDITS, 2, debit)
 
+    def check_pin(self, pin):
+        pin = struct.pack("!H", pin)
+        data = self.instruction(ClientRockSaclay.INS_CHECK_PIN, 2, pin)
+        debug("pin", data[0], data[1])
+        return data
+    
     def debug(self):
         data =  self.instruction(ClientRockSaclay.INS_DEBUG)
         assert len(data) == 20
@@ -99,6 +112,10 @@ if __name__ == "__main__":
     print("credits", client.get_credits())
     client.debit_credits(20)
     print("credits", client.get_credits())
+    print("tries remanging", client.get_tries_remaning())
+    print(client.check_pin(4444))
+    print(client.check_pin(5555))
+    print(client.check_pin(5555))
 
 
     

@@ -18,7 +18,8 @@ public class RockSaclay extends Applet {
     public static final byte INS_GET_NAME = 0x03;
     public static final byte INS_GET_ID = 0x04;
     public static final byte INS_GET_CREDITS = 0x05;
-
+    public static final byte INS_GET_TRIES_REMAINING = 0x06;
+    public static final byte INS_GET_SIGNATURE = 0x07;
     
     /* Exceptions */
     static final short SW_INSUFFICIENT_CREDITS = 0x7201;
@@ -27,12 +28,15 @@ public class RockSaclay extends Applet {
     
     public static final byte PIN_TRY_LIMIT =3;
     public static final byte PIN_LENGTH =2;
+    public static final byte SIGNATURE_LENGTH =96;
+    public static final byte NAME_LENGTH = 15;
     /* Attributs */
-    private byte[] name = new byte[15];
+    private byte[] name = new byte[NAME_LENGTH];
     private byte name_length = 0;
     private OwnerPIN pin;
     private short credits;
     private short id;
+    private byte[] signature = new byte[SIGNATURE_LENGTH];
     
     /* Constructeur */
     private RockSaclay(byte array[], short offset, byte length) {
@@ -59,7 +63,10 @@ public class RockSaclay extends Applet {
         // TODO: check length
         Util.arrayCopy(array, (short)(offset_param+1), this.name, (short)0, this.name_length);
         offset_param += 1 + name_length;
-        
+
+        // signature
+        //Util.arrayCopy(array, offset_param, this.signature, (short)0, SIGNATURE_LENGTH);
+        //offset_param += SIGNATURE_LENGTH;
 	
     }
     
@@ -93,9 +100,8 @@ public class RockSaclay extends Applet {
 	
         switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_CHECK_PIN:
-                Util.arrayCopy(name, (byte)0, buffer, (byte)0, (byte)name.length);
-                apdu.setOutgoingAndSend((short) 0, (short) name.length);
-                            break;
+                this.check_pin(buffer, apdu);
+                break;
                     
             case INS_DEBIT_CREDITS:
                 this.debit_credits(buffer, apdu);
@@ -113,6 +119,14 @@ public class RockSaclay extends Applet {
                 this.get_credits(buffer, apdu);
                 break;
 
+            case INS_GET_TRIES_REMAINING:
+                this.get_tries_remaining(buffer ,apdu);
+                break;
+
+            case INS_GET_SIGNATURE:
+                this.get_signature(buffer, apdu);
+                break;
+            
             case INS_DEBUG:
                 this.debug(buffer, apdu);
                 break;
@@ -123,14 +137,43 @@ public class RockSaclay extends Applet {
     }
 
     public void debug(byte[] buffer, APDU apdu){
+        // TODO not in raw
         // 2 id 2 credits 1 length 15 names
         Util.setShort(buffer, (short)0, this.id);
         Util.setShort(buffer, (short)2, this.credits);
         buffer[4] = this.name_length;
-        Util.arrayCopy(this.name, (short)0,buffer,(short)5,(short)15 );
+        Util.arrayCopy(this.name, (short)0,buffer,(short)5,(short)NAME_LENGTH );
         apdu.setOutgoingAndSend((short) 0, (short) 20);
     }
 
+    public void check_pin(byte[] buffer, APDU apdu){
+        // Return 1(True/False), 1 number of attempt
+        apdu.setIncomingAndReceive();
+        byte validate = (byte)0;
+        if (this.pin.isValidated()){
+            validate = (byte)1;
+        }else{
+            if(pin.check(buffer, (short) ISO7816.OFFSET_CDATA, PIN_LENGTH)){
+                validate = (byte)1;
+            }else{
+                validate = (byte)0;
+            }
+        }
+
+        buffer[0] = validate;
+        buffer[1] = this.pin.getTriesRemaining();
+
+        apdu.setOutgoingAndSend((short) 0, (byte)2);
+    }
+
+    public void get_signature(byte[] buffer, APDU apdu){
+
+    }
+
+    public void get_tries_remaining(byte[] buffer, APDU apdu){
+        buffer[0] = this.pin.getTriesRemaining();
+        apdu.setOutgoingAndSend((short) 0, (byte)1);
+    }
     public void get_name(byte[] buffer, APDU apdu){
         Util.arrayCopy(this.name, (short)0,buffer,(short)0,(short)this.name_length );
         apdu.setOutgoingAndSend((short) 0, this.name_length);
