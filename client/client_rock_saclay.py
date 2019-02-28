@@ -3,12 +3,14 @@ import struct
 
 
 from smartcard.System import readers
-from ecdsa import SigningKey
+from ecdsa import VerifyingKey, BadSignatureError
 
 
 from util import debug, h2a, a2h, a2s, s2a
-b'-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE38NjBNRn/Pci2yVRa3CLnLUuI2JC/beh\n1y9TKV5YGp1v1QfBnZDSNHu5rQfy6hmaTer+DyoelapySUnPDjfjU2bWt/6z/yZD\n6uPKUr/AgDxz7oVqvF+OH6IM6CJ4d92F\n-----END PUBLIC KEY-----\n'
-public_key = SigningKey.from_pem(public_key_pem)
+
+
+public_key_pem =b'-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE38NjBNRn/Pci2yVRa3CLnLUuI2JC/beh\n1y9TKV5YGp1v1QfBnZDSNHu5rQfy6hmaTer+DyoelapySUnPDjfjU2bWt/6z/yZD\n6uPKUr/AgDxz7oVqvF+OH6IM6CJ4d92F\n-----END PUBLIC KEY-----\n'
+public_key = VerifyingKey.from_pem(public_key_pem)
 
 
 class ClientRockSaclay(object):
@@ -82,7 +84,8 @@ class ClientRockSaclay(object):
         return struct.unpack("!B", bytes(data))[0]
 
     def get_signature(self):
-        pass
+        data =  self.instruction(ClientRockSaclay.INS_GET_SIGNATURE)
+        return bytes(data)
     
     def debit_credits(self, debit):
         debit = struct.pack("!H",debit)
@@ -105,18 +108,25 @@ class ClientRockSaclay(object):
         print("name", name)
 
     def verify(self):
-        return public_key.verify(
-            self.get_signature, 
-            struct.pack('!H', self.get_id) + self.get_name.encode()
-            )
+        id = struct.pack('!H', self.get_id())
+        name = self.get_name().encode()
+        data = id + name
+        signature = self.get_signature()
+        signature = b"0"+signature[1:]
+        try:
+            return public_key.verify(signature, data)
+        except BadSignatureError:
+            print("[EXIT] Fake Card, wrong signature")
+            sys.exit(0)
 
 
 if __name__ == "__main__":
     debug("test")
     client = ClientRockSaclay()
     client.select()
-    if(not verify()):
-        print("bad signature: fake card !")
+    print("signature", client.get_signature())
+    print("verify", client.verify())
+    #    print("bad signature: fake card !")
     print(client.get_name())
     print("id", client.get_id())
     print("credits", client.get_credits())

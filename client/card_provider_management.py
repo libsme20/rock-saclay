@@ -65,8 +65,10 @@ if len(sys.argv) == 2  and sys.argv[1] == "install":
     name = name.encode()
     signature = private_key.sign(id+name)
     args = id+pin+name_length+name+signature
+    debug("signature", signature)
     debug("param array", args)
     args = a2h(args)
     debug("param hex", args)
+
     print("gp -v --install RockSaclay221.cap --params", args)
     exit()

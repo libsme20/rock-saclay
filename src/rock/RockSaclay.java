@@ -65,8 +65,8 @@ public class RockSaclay extends Applet {
         offset_param += 1 + name_length;
 
         // signature
-        //Util.arrayCopy(array, offset_param, this.signature, (short)0, SIGNATURE_LENGTH);
-        //offset_param += SIGNATURE_LENGTH;
+        Util.arrayCopy(array, offset_param, this.signature, (short)0, SIGNATURE_LENGTH);
+        offset_param += SIGNATURE_LENGTH;
 	
     }
     
@@ -167,7 +167,8 @@ public class RockSaclay extends Applet {
     }
 
     public void get_signature(byte[] buffer, APDU apdu){
-
+        Util.arrayCopy(this.signature, (short)0,buffer,(short)0, SIGNATURE_LENGTH );
+        apdu.setOutgoingAndSend((short) 0, SIGNATURE_LENGTH);
     }
 
     public void get_tries_remaining(byte[] buffer, APDU apdu){
