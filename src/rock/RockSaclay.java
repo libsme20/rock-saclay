@@ -37,7 +37,7 @@ public class RockSaclay extends Applet {
     /* Constructeur */
     private RockSaclay(byte array[], short offset, byte length) {
         
-	this.credits = 500;
+	    this.credits = 500;
         // calculer les offset/length 
         byte aid_length = array[offset];
         byte control_length = array[(short)(offset+(short)aid_length+(short)1)];
@@ -46,18 +46,18 @@ public class RockSaclay extends Applet {
         
         
         // 2 bytes id
-        id = Util.makeShort(array[offset_param], array[(short)(offset_param+1)]);
+        this.id = Util.makeShort(array[offset_param], array[(short)(offset_param+1)]);
         offset_param += 2;
         
         // 2 bytes pin
-        pin = new OwnerPIN(PIN_TRY_LIMIT, PIN_LENGTH);
-        pin.update(array, offset_param, PIN_LENGTH);
+        this.pin = new OwnerPIN(PIN_TRY_LIMIT, PIN_LENGTH);
+        this.pin.update(array, offset_param, PIN_LENGTH);
         offset_param += PIN_LENGTH;
         
         // 1 byte len name, n bytes name
-        name_length = array[offset_param];
+        this.name_length = array[offset_param];
         // TODO: check length
-        Util.arrayCopy(array, (short)(offset_param+1), name, (short)0, name_length);
+        Util.arrayCopy(array, (short)(offset_param+1), this.name, (short)0, this.name_length);
         offset_param += 1 + name_length;
         
 	
@@ -69,12 +69,13 @@ public class RockSaclay extends Applet {
      * @exception ISOException if toDebit value is superior compared to toDebit value.
      */
     public void debit(short toDebit) throws ISOException{
-	if((short)(this.credits - toDebit) >=0){
-	    this.credits = (short)(this.credits - toDebit);
-	    return;
+        if (toDebit > this.credits){
+            ISOException.throwIt(SW_INSUFFICIENT_CREDITS);
+        }
+        this.credits -= toDebit;
 	}
-	ISOException.throwIt(SW_INSUFFICIENT_CREDITS);
-    }
+	
+    
 
     public static void install(byte bArray[], short bOffset, byte bLength) throws ISOException {
         new RockSaclay(bArray, bOffset, bLength).register();
@@ -82,87 +83,51 @@ public class RockSaclay extends Applet {
 
 
     public void process(APDU apdu) throws ISOException {
-	byte[] buffer = apdu.getBuffer();
+        byte[] buffer = apdu.getBuffer();
+        
+        if (this.selectingApplet()) return;
+        
+        if (buffer[ISO7816.OFFSET_CLA] != CLA_MONAPPLET) {
+                ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
+        }
 	
-	if (this.selectingApplet()) return;
-	
-	if (buffer[ISO7816.OFFSET_CLA] != CLA_MONAPPLET) {
-            ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
-	}
-	
-	switch (buffer[ISO7816.OFFSET_INS]) {
-	case INS_CHECK_PIN:
-	    Util.arrayCopy(name, (byte)0, buffer, (byte)0, (byte)name.length);
-	    apdu.setOutgoingAndSend((short) 0, (short) name.length);
-                    break;
-		    
-    case INS_DEBIT_CREDITS:
-	    apdu.setIncomingAndReceive();
-	    // Checks if buffer matches a short length.
-	    if(ISO7816.OFFSET_LC != Short.BYTES){
-		ISOException.throwIt(SW_NOT_A_SHORT_VALUE);
-	    }
-	    // Gets value from the buffer and store it into toDebitBytes value
-	    byte[] toDebitBytes = new byte[Short.BYTES];
-	    Util.arrayCopy(
-			   buffer,
-			   buffer[ISO7816.OFFSET_CDATA],
-			   toDebitBytes,
-			   (short) 0,
-			   (short) ISO7816.OFFSET_LC
-			   );
-	    // Converts in short
-	    short toDebit = Util.makeShort(
-					   toDebitBytes[0],
-					   toDebitBytes[1]
-					   );
-	    // Apply debit
-	    this.debit(toDebit);
-	    // Converts credits to bytes and push into buffer.
-	    byte[] creditsBytes = toBytes(this.credits);
-	    Util.arrayCopy(
-			   creditsBytes,
-			   (short) 0,
-			   buffer,
-			   (short) 0,
-			   (short) creditsBytes.length
-			   );
-	    apdu.setOutgoingAndSend((short) 0, (short) Short.BYTES);
-	    break;
-    case INS_GET_NAME:
-        this.get_name(buffer, apdu);
-        break;
-    
-    case INS_GET_ID:
-        this.get_id(buffer, apdu);
-        break;
-    
-    case INS_GET_CREDITS:
-        this.get_credits(buffer, apdu);
-        break;
+        switch (buffer[ISO7816.OFFSET_INS]) {
+            case INS_CHECK_PIN:
+                Util.arrayCopy(name, (byte)0, buffer, (byte)0, (byte)name.length);
+                apdu.setOutgoingAndSend((short) 0, (short) name.length);
+                            break;
+                    
+            case INS_DEBIT_CREDITS:
+                this.debit_credits(buffer, apdu);
+                break;
 
-    case INS_DEBUG:
-        debug(buffer, apdu);
-        break;
+            case INS_GET_NAME:
+                this.get_name(buffer, apdu);
+                break;
+            
+            case INS_GET_ID:
+                this.get_id(buffer, apdu);
+                break;
+            
+            case INS_GET_CREDITS:
+                this.get_credits(buffer, apdu);
+                break;
 
-	default:
-	    ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
-	}
-    }
+            case INS_DEBUG:
+                this.debug(buffer, apdu);
+                break;
 
-    public static byte[] toBytes(short shortValue){
-        return new byte[]{
-            (byte) (shortValue >> 8),
-            (byte) (shortValue)
-        };
+            default:
+                ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
+        }
     }
 
     public void debug(byte[] buffer, APDU apdu){
         // 2 id 2 credits 1 length 15 names
         Util.setShort(buffer, (short)0, this.id);
         Util.setShort(buffer, (short)2, this.credits);
-        buffer[4] = name_length;
-        Util.arrayCopy(name, (short)0,buffer,(short)5,(short)15 );
+        buffer[4] = this.name_length;
+        Util.arrayCopy(this.name, (short)0,buffer,(short)5,(short)15 );
         apdu.setOutgoingAndSend((short) 0, (short) 20);
     }
 
@@ -179,5 +144,20 @@ public class RockSaclay extends Applet {
     public void get_credits(byte[] buffer, APDU apdu){
         Util.setShort(buffer, (short)0, this.credits);
         apdu.setOutgoingAndSend((short) 0, (byte)2);
+    }
+
+    public void debit_credits(byte[] buffer, APDU apdu){
+        apdu.setIncomingAndReceive();
+	    // Checks if buffer matches a short length.
+	    if(buffer[ISO7816.OFFSET_LC] != Short.BYTES){
+		    ISOException.throwIt(SW_NOT_A_SHORT_VALUE);
+	    }
+        // Gets value from the buffer and store it into toDebitBytes value
+        short debiter = Util.getShort(buffer, (short)(ISO7816.OFFSET_LC+1));
+        if (debiter > this.credits){
+            ISOException.throwIt(SW_INSUFFICIENT_CREDITS);
+        }
+        this.credits -= debiter;
+
     }
 }

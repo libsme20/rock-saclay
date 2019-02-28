@@ -1,107 +1,15 @@
-from smartcard.System import readers
 import sys
-import string 
 import struct 
-import ecdsa import SigningKey
-
-public_key_pem = b'-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE38NjBN
-Rn/Pci2yVRa3CLnLUuI2JC/beh\n1y9TKV5YGp1v1QfBnZDSNHu5rQfy6hmaTer+Dyoe
-lapySUnPDjfjU2bWt/6z/yZD\n6uPKUr/AgDxz7oVqvF+OH6IM6CJ4d92F\n-----END
- PUBLIC KEY-----\n'
-public_key = SigningKey.from_pem(public_key_pem)
 
 
-
-alphabet = string.ascii_letters
-DEBUG = 1
-def debug(*args):
-    if DEBUG:
-        print("[DEBUG]", *args)
+from smartcard.System import readers
+from ecdsa import SigningKey
 
 
-def h2a(h):
-    """Hex to array"""
-    if len(h)%2 != 0:
-        raise Exception("h must be hex and length multiple of 2")
-    return [int(h[i:i+2], 16) for i in range(0,len(h),2)]
+from util import debug, h2a, a2h, a2s, s2a
 
-def a2h(a):
-    return "".join([hex(e)[2:].zfill(2) for e in a])
-
-
-# INSTALL THE APPLET HELPER
-if len(sys.argv) == 2  and sys.argv[1] == "install":
-    print("Client Rock Saclay Installation Helper")
-    # Get ID
-    while True:
-        id = input("Donnez l'id: ")
-        if not id.isdigit():
-            print("Id doit être un numéro")
-            continue
-        id = int(id)
-        if id <0 or id > 65535:
-            print("Id doit etre entre 0 et 65535")
-            continue
-        break
-    
-    # Get PIN
-    while True:
-        pin = input("Donnez pin: ")
-        if not pin.isdigit():
-            print("PIN doit être un numéro")
-            continue
-        pin = int(pin)
-        if pin <0 or pin > 9999:
-            print("PIN doit etre entre 0 et 9999")
-            continue
-        break
-    
-    # Get Name
-    while True:
-        # Encoding?
-        name = input("Donnez le nom: ")
-        if len(name) >= 15:
-            print("Le nom doit pas depasser les 15 caractères")
-            continue
-        good_alpha = True
-        for e in name:
-            if e not in alphabet:
-                print("Le nom peut pas contenir des caractères spécieaux")
-                good_alpha = False
-                break
-        if not good_alpha:
-            continue
-        break
-    print(id, pin, name)
-    id = struct.pack("!H", id)
-    pin = struct.pack("!H", pin)
-    name_length = struct.pack("B", len(name))
-    name = name.encode()
-    args = id+pin+name_length+name
-    debug("param array", args)
-    args = a2h(args)
-    debug("param hex", args)
-    print("gp -v --install RockSaclay221.cap --params", args)
-    exit()
-
-def array2str(a):
-    return "".join([chr(e) for e in a])
-
-def str2array(string):
-    return [ord(e) for e in string]
-
-def get_name():
-    data, sw1, sw2 = connection.transmit([CLASS_APPLET, INS_GET_NAME,0x00,0x00,0x01,0x00,0x00])
-    # print("[DEBUG]",hex(sw1),sw2)
-    return array2str(data)
-    
-
-def set_name(name):
-    a = [CLASS_APPLET, INS_SET_NAME, 0x00,0x00, len(name)] + str2array(name)+[0x00]
-    print(a)
-    connection.transmit(a)
-
-
+# public_key_pem = b'-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE38NjBNRn/Pci2yVRa3CLnLUuI2JC/beh\n1y9TKV5YGp1v1QfBnZDSNHu5rQfy6hmaTer+DyoelapySUnPDjfjU2bWt/6z/yZD\n6uPKUr/AgDxz7oVqvF+OH6IM6CJ4d92F\n-----END PUBLIC KEY-----\n'
+# public_key = SigningKey.from_pem(public_key_pem)
 
 
 class ClientRockSaclay(object):
@@ -112,19 +20,18 @@ class ClientRockSaclay(object):
     # Instructions
     INS_DEBUG = 0x00
     INS_CHECK_PIN = 0x01
-    INS_DEBITER_ARGENT = 0x02
+    INS_DEBIT_CREDITS = 0x02
     INS_GET_NAME = 0x03
     INS_GET_ID = 0x04
     INS_GET_CREDITS = 0x05
 
-    
-    
-
     def __init__(self):
+        # Constructeur
         self.connection = readers()[0].createConnection()
         self.connection.connect()
     
     def transmit(self, *args):
+        # Methode basique pour envoyer n'importe quoi a la javacard
         arg = []
         for e in args:
             if isinstance(e, list):
@@ -148,14 +55,17 @@ class ClientRockSaclay(object):
 
 
     def select(self):
+        # Select l'application avec son AID
         self.transmit(ClientRockSaclay.SELECT, ClientRockSaclay.AID)
 
     def instruction(self, inst, *args):
+        # Toute les instructions pass par cette fonctions
         return self.transmit(ClientRockSaclay.CLASS_APPLET, inst, b"\x00\x00",*args )
+
     # API with javacard
     def get_name(self):
         data = self.instruction(ClientRockSaclay.INS_GET_NAME)
-        return array2str(data)
+        return a2s(data)
     
     def get_id(self):
         data = self.instruction(ClientRockSaclay.INS_GET_ID)
@@ -164,6 +74,10 @@ class ClientRockSaclay(object):
     def get_credits(self):
         data = self.instruction(ClientRockSaclay.INS_GET_CREDITS)
         return struct.unpack("!H", bytes(data))[0]
+
+    def debit_credits(self, debit):
+        debit = struct.pack("!H",debit)
+        self.instruction(ClientRockSaclay.INS_DEBIT_CREDITS, 2, debit)
 
     def debug(self):
         data =  self.instruction(ClientRockSaclay.INS_DEBUG)
@@ -183,5 +97,8 @@ if __name__ == "__main__":
     print(client.get_name())
     print("id", client.get_id())
     print("credits", client.get_credits())
-    
+    client.debit_credits(20)
+    print("credits", client.get_credits())
+
+
     

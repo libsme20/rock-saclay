@@ -1,4 +1,5 @@
 *.cap
 *.rst
+*.pyc
 /rock-saclay/client/*.py~
 /rock-saclay/client/venv
