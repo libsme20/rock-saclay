@@ -2,6 +2,15 @@ from smartcard.System import readers
 import sys
 import string 
 import struct 
+import ecdsa import SigningKey
+
+public_key_pem = b'-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE38NjBN
+Rn/Pci2yVRa3CLnLUuI2JC/beh\n1y9TKV5YGp1v1QfBnZDSNHu5rQfy6hmaTer+Dyoe
+lapySUnPDjfjU2bWt/6z/yZD\n6uPKUr/AgDxz7oVqvF+OH6IM6CJ4d92F\n-----END
+ PUBLIC KEY-----\n'
+public_key = SigningKey.from_pem(public_key_pem)
+
+
 
 alphabet = string.ascii_letters
 DEBUG = 1
