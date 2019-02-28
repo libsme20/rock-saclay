@@ -16,6 +16,8 @@ public class RockSaclay extends Applet {
     public static final byte INS_CHECK_PIN = 0x01;
     public static final byte INS_DEBIT_CREDITS = 0x02;
     public static final byte INS_GET_NAME = 0x03;
+    public static final byte INS_GET_ID = 0x04;
+    public static final byte INS_GET_CREDITS = 0x05;
 
     
     /* Exceptions */
@@ -39,8 +41,8 @@ public class RockSaclay extends Applet {
         // calculer les offset/length 
         byte aid_length = array[offset];
         byte control_length = array[(short)(offset+(short)aid_length+(short)1)];
-        byte offset_param_length = array[(short)(offset+1+(short)aid_length+1+(short)control_length)];
-        short offset_param = (short)array[(short)(offset+1+(short)aid_length+1+(short)control_length+1)];
+        byte oparam_length = array[(short)(offset+1+(short)aid_length+1+(short)control_length)];
+        short offset_param = (short)(offset+1+(short)aid_length+1+(short)control_length+1);
         
         
         // 2 bytes id
@@ -94,7 +96,7 @@ public class RockSaclay extends Applet {
 	    apdu.setOutgoingAndSend((short) 0, (short) name.length);
                     break;
 		    
-	case INS_DEBIT_CREDITS:
+    case INS_DEBIT_CREDITS:
 	    apdu.setIncomingAndReceive();
 	    // Checks if buffer matches a short length.
 	    if(ISO7816.OFFSET_LC != Short.BYTES){
@@ -127,7 +129,21 @@ public class RockSaclay extends Applet {
 			   );
 	    apdu.setOutgoingAndSend((short) 0, (short) Short.BYTES);
 	    break;
+    case INS_GET_NAME:
+        this.get_name(buffer, apdu);
+        break;
+    
+    case INS_GET_ID:
+        this.get_id(buffer, apdu);
+        break;
+    
+    case INS_GET_CREDITS:
+        this.get_credits(buffer, apdu);
+        break;
 
+    case INS_DEBUG:
+        debug(buffer, apdu);
+        break;
 
 	default:
 	    ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
@@ -135,14 +151,33 @@ public class RockSaclay extends Applet {
     }
 
     public static byte[] toBytes(short shortValue){
-	return new byte[]{
-	    (byte) (shortValue >> 8),
-	    (byte) (shortValue)
-	};
+        return new byte[]{
+            (byte) (shortValue >> 8),
+            (byte) (shortValue)
+        };
     }
 
-    public static void debug(byte[] buffer, APDU apdu){
-        // 2 id 2 argent 1 length 15 names
-        
+    public void debug(byte[] buffer, APDU apdu){
+        // 2 id 2 credits 1 length 15 names
+        Util.setShort(buffer, (short)0, this.id);
+        Util.setShort(buffer, (short)2, this.credits);
+        buffer[4] = name_length;
+        Util.arrayCopy(name, (short)0,buffer,(short)5,(short)15 );
+        apdu.setOutgoingAndSend((short) 0, (short) 20);
+    }
+
+    public void get_name(byte[] buffer, APDU apdu){
+        Util.arrayCopy(this.name, (short)0,buffer,(short)0,(short)this.name_length );
+        apdu.setOutgoingAndSend((short) 0, this.name_length);
+    }
+
+    public void get_id(byte[] buffer, APDU apdu){
+        Util.setShort(buffer, (short)0, this.id);
+        apdu.setOutgoingAndSend((short) 0, (byte)2);
+    }
+
+    public void get_credits(byte[] buffer, APDU apdu){
+        Util.setShort(buffer, (short)0, this.credits);
+        apdu.setOutgoingAndSend((short) 0, (byte)2);
     }
 }
