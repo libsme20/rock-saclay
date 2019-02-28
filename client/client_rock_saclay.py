@@ -114,7 +114,8 @@ class ClientRockSaclay(object):
     INS_CHECK_PIN = 0x01
     INS_DEBITER_ARGENT = 0x02
     INS_GET_NAME = 0x03
-    
+    INS_GET_ID = 0x04
+    INS_GET_CREDITS = 0x05
 
     
     
@@ -142,6 +143,7 @@ class ClientRockSaclay(object):
         data, sw1, sw2 = self.connection.transmit(arg)
         if sw1 != 0x90 and sw2 != 0x00:
             raise Exception(f"Code error not OK code {hex(sw1)} {hex(sw2)}")
+        debug("returned data", data)
         return data
 
 
@@ -152,10 +154,26 @@ class ClientRockSaclay(object):
         return self.transmit(ClientRockSaclay.CLASS_APPLET, inst, b"\x00\x00",*args )
     # API with javacard
     def get_name(self):
-        return self.instruction(ClientRockSaclay.INS_GET_NAME)
+        data = self.instruction(ClientRockSaclay.INS_GET_NAME)
+        return array2str(data)
     
+    def get_id(self):
+        data = self.instruction(ClientRockSaclay.INS_GET_ID)
+        return struct.unpack("!H", bytes(data))[0]
+    
+    def get_credits(self):
+        data = self.instruction(ClientRockSaclay.INS_GET_CREDITS)
+        return struct.unpack("!H", bytes(data))[0]
+
     def debug(self):
-        return self.instruction(ClientRockSaclay.INS_DEBUG)
+        data =  self.instruction(ClientRockSaclay.INS_DEBUG)
+        assert len(data) == 20
+        id, credits, name_length, name =  struct.unpack("!HHB15s", bytes(data))
+
+        print("id", id)
+        print("credits", credits)
+        print("name length", name_length)
+        print("name", name)
 
 
 if __name__ == "__main__":
@@ -163,4 +181,7 @@ if __name__ == "__main__":
     client = ClientRockSaclay()
     client.select()
     print(client.get_name())
+    print("id", client.get_id())
+    print("credits", client.get_credits())
+    
     
