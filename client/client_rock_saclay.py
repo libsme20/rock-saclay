@@ -7,9 +7,8 @@ from ecdsa import SigningKey
 
 
 from util import debug, h2a, a2h, a2s, s2a
-
-# public_key_pem = b'-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE38NjBNRn/Pci2yVRa3CLnLUuI2JC/beh\n1y9TKV5YGp1v1QfBnZDSNHu5rQfy6hmaTer+DyoelapySUnPDjfjU2bWt/6z/yZD\n6uPKUr/AgDxz7oVqvF+OH6IM6CJ4d92F\n-----END PUBLIC KEY-----\n'
-# public_key = SigningKey.from_pem(public_key_pem)
+b'-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE38NjBNRn/Pci2yVRa3CLnLUuI2JC/beh\n1y9TKV5YGp1v1QfBnZDSNHu5rQfy6hmaTer+DyoelapySUnPDjfjU2bWt/6z/yZD\n6uPKUr/AgDxz7oVqvF+OH6IM6CJ4d92F\n-----END PUBLIC KEY-----\n'
+public_key = SigningKey.from_pem(public_key_pem)
 
 
 class ClientRockSaclay(object):
@@ -62,7 +61,7 @@ class ClientRockSaclay(object):
         self.transmit(ClientRockSaclay.SELECT, ClientRockSaclay.AID)
 
     def instruction(self, inst, *args):
-        # Toute les instructions pass par cette fonctions
+        # Toutes les instructions pass par cette fonctions
         return self.transmit(ClientRockSaclay.CLASS_APPLET, inst, b"\x00\x00",*args )
 
     # API with javacard
@@ -82,6 +81,9 @@ class ClientRockSaclay(object):
         data = self.instruction(ClientRockSaclay.INS_GET_TRIES_REMAINING)
         return struct.unpack("!B", bytes(data))[0]
 
+    def get_signature(self):
+        pass
+    
     def debit_credits(self, debit):
         debit = struct.pack("!H",debit)
         self.instruction(ClientRockSaclay.INS_DEBIT_CREDITS, 2, debit)
@@ -102,11 +104,19 @@ class ClientRockSaclay(object):
         print("name length", name_length)
         print("name", name)
 
+    def verify(self):
+        return public_key.verify(
+            self.get_signature, 
+            struct.pack('!H', self.get_id) + self.get_name.encode()
+            )
+
 
 if __name__ == "__main__":
     debug("test")
     client = ClientRockSaclay()
     client.select()
+    if(not verify()):
+        print("bad signature: fake card !")
     print(client.get_name())
     print("id", client.get_id())
     print("credits", client.get_credits())
@@ -118,4 +128,3 @@ if __name__ == "__main__":
     print(client.check_pin(5555))
 
 
-    
