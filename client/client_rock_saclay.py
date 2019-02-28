@@ -101,8 +101,11 @@ class ClientRockSaclay(object):
     AID = h2a("0102030405060710")
     SELECT = h2a("00A4040008")
     # Instructions
-    INS_CHECK_PIN = 0x00
-    INS_DEBITER_ARGENT = 0x01
+    INS_DEBUG = 0x00
+    INS_CHECK_PIN = 0x01
+    INS_DEBITER_ARGENT = 0x02
+    INS_GET_NAME = 0x03
+    
 
     
     
@@ -116,8 +119,14 @@ class ClientRockSaclay(object):
         for e in args:
             if isinstance(e, list):
                 arg += e
+            elif isinstance(e, bytes):
+                arg += list(e)
             elif isinstance(e, str):
                 arg += h2a(e)
+            elif isinstance(e, int):
+                if e < 0 or e > 255:
+                    raise Exception(f"int must be byte 0-255 {e}")
+                arg.append(e)
             else:
                 raise Exception(f"can't hadnle type {type(e)} in transmit")
         debug("transmit", arg)
@@ -130,8 +139,19 @@ class ClientRockSaclay(object):
     def select(self):
         self.transmit(ClientRockSaclay.SELECT, ClientRockSaclay.AID)
 
+    def instruction(self, inst, *args):
+        return self.transmit(ClientRockSaclay.CLASS_APPLET, inst, b"\x00\x00",*args )
+    # API with javacard
+    def get_name(self):
+        return self.instruction(ClientRockSaclay.INS_GET_NAME)
+    
+    def debug(self):
+        return self.instruction(ClientRockSaclay.INS_DEBUG)
+
+
 if __name__ == "__main__":
     debug("test")
     client = ClientRockSaclay()
     client.select()
+    print(client.get_name())
     

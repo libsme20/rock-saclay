@@ -10,8 +10,12 @@ import javacard.framework.OwnerPIN;
 public class RockSaclay extends Applet {
     
     public static final byte CLA_MONAPPLET = (byte) 0xB0;
-    public static final byte INS_CHECK_PIN = 0x00;
-    public static final byte INS_DEBIT_CREDITS = 0x01;
+    
+    // Instructions
+    public static final byte INS_DEBUG = 0x00;
+    public static final byte INS_CHECK_PIN = 0x01;
+    public static final byte INS_DEBIT_CREDITS = 0x02;
+    public static final byte INS_GET_NAME = 0x03;
 
     
     /* Exceptions */
@@ -135,5 +139,10 @@ public class RockSaclay extends Applet {
 	    (byte) (shortValue >> 8),
 	    (byte) (shortValue)
 	};
+    }
+
+    public static void debug(byte[] buffer, APDU apdu){
+        // 2 id 2 argent 1 length 15 names
+        
     }
 }
