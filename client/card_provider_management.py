@@ -12,11 +12,13 @@ alphabet = string.ascii_letters
 #private_key = SigningKey.generate(curve=NIST384p)
 private_key_string = b'-----BEGIN EC PRIVATE KEY-----\nMIGkAgEBBDAfR/wtBhgTA36/CciBuwBZ4JvdbsJfgQoUiktFiApgslqe9JAqE49c\nD3Oxs1HxMdygBwYFK4EEACKhZANiAATfw2ME1Gf89yLbJVFrcIuctS4jYkL9t6HX\nL1MpXlganW/VB8GdkNI0e7mtB/LqGZpN6v4PKh6VqnJJSc8ON+NTZta3/rP/JkPq\n48pSv8CAPHPuhWq8X44fogzoInh33YU=\n-----END EC PRIVATE KEY-----\n'  
 private_key= SigningKey.from_pem(private_key_string)
-public_key = private_key.get_verifying_key()
-print(public_key.to_pem())
 
-# INSTALL THE APPLET HELPER
-if len(sys.argv) == 2  and sys.argv[1] == "install":
+
+def input_int(msg="", min=None, max=None):
+    while True:
+        x = input(msg)
+        
+def install():
     print("Client Rock Saclay Installation Helper")
     # Get ID
     while True:
@@ -32,8 +34,9 @@ if len(sys.argv) == 2  and sys.argv[1] == "install":
     
     # Get PIN
     while True:
-        pin = input("Donnez pin: ")
+        pin = input("Donnez PIN: ")
         if not pin.isdigit():
+            00+
             print("PIN doit être un numéro")
             continue
         pin = int(pin)
@@ -72,3 +75,14 @@ if len(sys.argv) == 2  and sys.argv[1] == "install":
 
     print("gp -v --install RockSaclay221.cap --params", args)
     exit()
+
+import os
+
+if __name__ == "__main__":
+    if len(sys.argv) == 2  and sys.argv[1] == "install":
+        # install()
+        pass
+    # actions: install carte, 
+    print("Rock Saclay - Installation")
+    print("Inserez votre carte")
+    install()

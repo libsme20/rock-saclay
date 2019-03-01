@@ -1,4 +1,4 @@
-DEBUG = 1
+DEBUG = 0
 def debug(*args):
     if DEBUG:
         print("[DEBUG]", *args)

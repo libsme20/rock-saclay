@@ -24,6 +24,7 @@ public class RockSaclay extends Applet {
     /* Exceptions */
     static final short SW_INSUFFICIENT_CREDITS = 0x7201;
     static final short SW_NOT_A_SHORT_VALUE = 0x7202;
+    static final short SW_PIN_NOT_CHECKED = 0x7203;
         
     
     public static final byte PIN_TRY_LIMIT =3;
@@ -97,7 +98,7 @@ public class RockSaclay extends Applet {
         if (buffer[ISO7816.OFFSET_CLA] != CLA_MONAPPLET) {
                 ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
         }
-	
+    
         switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_CHECK_PIN:
                 this.check_pin(buffer, apdu);
@@ -146,6 +147,11 @@ public class RockSaclay extends Applet {
         apdu.setOutgoingAndSend((short) 0, (short) 20);
     }
 
+    public void is_authenticated() throws ISOException {
+        if (! this.pin.isValidated()){
+            ISOException.throwIt(SW_PIN_NOT_CHECKED);
+        }
+    }
     public void check_pin(byte[] buffer, APDU apdu){
         // Return 1(True/False), 1 number of attempt
         apdu.setIncomingAndReceive();
@@ -186,11 +192,14 @@ public class RockSaclay extends Applet {
     }
 
     public void get_credits(byte[] buffer, APDU apdu){
+        this.is_authenticated();
         Util.setShort(buffer, (short)0, this.credits);
         apdu.setOutgoingAndSend((short) 0, (byte)2);
     }
 
     public void debit_credits(byte[] buffer, APDU apdu){
+        this.is_authenticated();
+
         apdu.setIncomingAndReceive();
 	    // Checks if buffer matches a short length.
 	    if(buffer[ISO7816.OFFSET_LC] != Short.BYTES){

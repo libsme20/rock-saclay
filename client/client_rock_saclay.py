@@ -1,10 +1,10 @@
 import sys
 import struct 
+import time
 
-
-from smartcard.System import readers
 from ecdsa import VerifyingKey, BadSignatureError
-
+from smartcard.Exceptions import NoCardException
+from smartcard.System import readers
 
 from util import debug, h2a, a2h, a2s, s2a
 
@@ -28,11 +28,28 @@ class ClientRockSaclay(object):
     INS_GET_TRIES_REMAINING = 0x06
     INS_GET_SIGNATURE = 0x07
 
+    # Exceptions
+    exceptions = {
+        0x7203: "SW_PIN_NOT_CHECKED"
+    }
 
     def __init__(self):
-        # Constructeur
-        self.connection = readers()[0].createConnection()
-        self.connection.connect()
+        pass
+
+    def wait_carte(self):
+        while True:
+            r = readers()
+            if len(r):
+                break
+            time.sleep(0.5)
+        self.connection = r[0].createConnection()
+        while True:
+            try:
+                self.connection.connect()
+                break
+            except NoCardException:
+                time.sleep(0.5)
+        print("Carte insérée")
     
     def transmit(self, *args):
         # Methode basique pour envoyer n'importe quoi a la javacard
@@ -52,8 +69,12 @@ class ClientRockSaclay(object):
                 raise Exception(f"can't hadnle type {type(e)} in transmit")
         debug("transmit", arg)
         data, sw1, sw2 = self.connection.transmit(arg)
-        if sw1 != 0x90 and sw2 != 0x00:
-            raise Exception(f"Code error not OK code {hex(sw1)} {hex(sw2)}")
+        error_code = struct.unpack("!H", bytes([sw1, sw2]))[0]
+        if error_code != 0x9000:
+            error_msg = f"Code error not OK code {hex(error_code)}"
+            if error_code in ClientRockSaclay.exceptions:
+                error_msg += ", "+ClientRockSaclay.exceptions[error_code]
+            raise Exception(error_msg)
         debug("returned data", data)
         return data
 
@@ -112,20 +133,33 @@ class ClientRockSaclay(object):
         name = self.get_name().encode()
         data = id + name
         signature = self.get_signature()
-        signature = b"0"+signature[1:]
         try:
-            return public_key.verify(signature, data)
+            public_key.verify(signature, data)
         except BadSignatureError:
             print("[EXIT] Fake Card, wrong signature")
             sys.exit(0)
+        print("Carte vérifiée")
 
+
+    
 
 if __name__ == "__main__":
+    print("--- Rock Saclay ----")
+    print("Insérez votre carte")
+
+    client = ClientRockSaclay()
+    client.wait_carte()
+    client.select()
+    client.verify()
+    sys.exit(0)
+
+    pin = input("Insérez votre code PIN: ")
     debug("test")
     client = ClientRockSaclay()
     client.select()
     print("signature", client.get_signature())
     print("verify", client.verify())
+    print(client.check_pin(5555))
     #    print("bad signature: fake card !")
     print(client.get_name())
     print("id", client.get_id())
@@ -137,4 +171,5 @@ if __name__ == "__main__":
     print(client.check_pin(5555))
     print(client.check_pin(5555))
 
+    
 
