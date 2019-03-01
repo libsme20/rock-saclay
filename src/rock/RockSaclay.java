@@ -9,8 +9,8 @@ import javacard.framework.OwnerPIN;
 import javacard.security.KeyPair;
 import javacard.security.KeyBuilder;
 import javacard.security.Signature;
-import javacard.security.ECPrivateKey;
-import javacard.security.ECPublicKey;
+import javacard.security.RSAPrivateKey;
+import javacard.security.RSAPublicKey;
 
 public class RockSaclay extends Applet {
     
@@ -44,8 +44,8 @@ public class RockSaclay extends Applet {
     private short id;
     private byte[] signature = new byte[SIGNATURE_LENGTH];
     private Signature signature_transactions;
-    private ECPrivateKey privatekey;
-    private ECPublicKey publickey;
+    private RSAPrivateKey privatekey;
+    private RSAPublicKey publickey;
     
     /* Constructeur */
     private RockSaclay(byte array[], short offset, byte length) {
@@ -77,9 +77,9 @@ public class RockSaclay extends Applet {
         Util.arrayCopy(array, offset_param, this.signature, (short)0, SIGNATURE_LENGTH);
         offset_param += SIGNATURE_LENGTH;
 
-        KeyPair keypair = new KeyPair(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_192);
-        privatekey = (ECPrivateKey) keypair.getPrivate();
-        publickey = (ECPublicKey) keypair.getPublic();
+        KeyPair keypair = new KeyPair(KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1024);
+        privatekey = (RSAPrivateKey) keypair.getPrivate();
+        publickey = (RSAPublicKey) keypair.getPublic();
         // Maybe false should be change,
         this.signature_transactions = Signature.getInstance(
                 Signature.ALG_ECDSA_SHA,
@@ -90,7 +90,7 @@ public class RockSaclay extends Applet {
     public byte[] sign_transaction(short idVendeur, short transaction_montant){
         short bufferLength = Short.BYTES*3;
         byte[] buffer = new byte[bufferLength];
-        byte[] signatureData = new byte[Signature.ALG_ECDSA_SHA];
+        byte[] signatureData = new byte[Signature.ALG_RSA_SHA_PKCS1_PSS];
         Util.setShort(buffer, (short) 0, idVendeur);
         Util.setShort(buffer, (short) Short.BYTES, transaction_montant);
         Util.setShort(buffer, (short) 4, this.id);
@@ -198,10 +198,15 @@ public class RockSaclay extends Applet {
         apdu.setOutgoingAndSend((short) 0, (byte)2);
     }
 
+    
     public void get_public_key(byte[] buffer, APDU apdu){
-        Util.arrayCopy(this.publickey, (short)0,buffer,(short)0, KeyBuilder.LENGTH_EC_FP_192 );
-        apdu.setOutgoingAndSend((short) 0, KeyBuilder.LENGTH_EC_FP_192);
+	this.publickey.getExponent(buffer, (short) 0);
+	this.publickey.getModulus(buffer, (short) 2);
+        //Util.arrayCopy(this.publickey, (short)0,buffer,(short)0, KeyBuilder.LENGTH_EC_FP_192 );
+	short sizePK =  KeyBuilder.LENGTH_RSA_1024 + 2;
+	apdu.setOutgoingAndSend((short) 0, sizePK);
     }
+    
 
     public void get_signature(byte[] buffer, APDU apdu){
         Util.arrayCopy(this.signature, (short)0,buffer,(short)0, SIGNATURE_LENGTH );
@@ -212,6 +217,7 @@ public class RockSaclay extends Applet {
         buffer[0] = this.pin.getTriesRemaining();
         apdu.setOutgoingAndSend((short) 0, (byte)1);
     }
+    
     public void get_name(byte[] buffer, APDU apdu){
         Util.arrayCopy(this.name, (short)0,buffer,(short)0,(short)this.name_length );
         apdu.setOutgoingAndSend((short) 0, this.name_length);
