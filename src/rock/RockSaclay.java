@@ -6,6 +6,11 @@ import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 import javacard.framework.Util;
 import javacard.framework.OwnerPIN;
+import javacard.security.KeyPair;
+import javacard.security.KeyBuilder;
+import javacard.security.Signature;
+import javacard.security.ECPrivateKey;
+import javacard.security.ECPublicKey;
 
 public class RockSaclay extends Applet {
     
@@ -20,6 +25,7 @@ public class RockSaclay extends Applet {
     public static final byte INS_GET_CREDITS = 0x05;
     public static final byte INS_GET_TRIES_REMAINING = 0x06;
     public static final byte INS_GET_SIGNATURE = 0x07;
+    public static final byte INS_GET_PUBLIC_KEY = 0x08;
     
     /* Exceptions */
     static final short SW_INSUFFICIENT_CREDITS = 0x7201;
@@ -37,10 +43,13 @@ public class RockSaclay extends Applet {
     private short credits;
     private short id;
     private byte[] signature = new byte[SIGNATURE_LENGTH];
+    private Signature signature_transactions;
+    private ECPrivateKey privatekey;
+    private ECPublicKey publickey;
     
     /* Constructeur */
     private RockSaclay(byte array[], short offset, byte length) {
-        
+
 	    this.credits = 500;
         // calculer les offset/length 
         byte aid_length = array[offset];
@@ -67,11 +76,30 @@ public class RockSaclay extends Applet {
         // signature
         Util.arrayCopy(array, offset_param, this.signature, (short)0, SIGNATURE_LENGTH);
         offset_param += SIGNATURE_LENGTH;
-	
+
+        KeyPair keypair = new KeyPair(KeyPair.ALG_EC_FP, KeyBuilder.LENGTH_EC_FP_192);
+        privatekey = (ECPrivateKey) keypair.getPrivate();
+        publickey = (ECPublicKey) keypair.getPublic();
+        // Maybe false should be change,
+        this.signature_transactions = Signature.getInstance(
+                Signature.ALG_ECDSA_SHA,
+                false);
+        this.signature_transactions.init(privatekey, Signature.MODE_SIGN);
     }
-    
+
+    public byte[] sign_transaction(short idVendeur, short transaction_montant){
+        short bufferLength = Short.BYTES*3;
+        byte[] buffer = new byte[bufferLength];
+        byte[] signatureData = new byte[Signature.ALG_ECDSA_SHA];
+        Util.setShort(buffer, (short) 0, idVendeur);
+        Util.setShort(buffer, (short) Short.BYTES, transaction_montant);
+        Util.setShort(buffer, (short) 4, this.id);
+        this.signature_transactions.sign(buffer, (short) 0, bufferLength, signatureData, (short) 0);
+        return signatureData;
+    }
+
     /**
-     * Debits account with toDebit value, 
+     * Debits account with toDebit value,
      * @param toDebit
      * @exception ISOException if toDebit value is superior compared to toDebit value.
      */
@@ -126,6 +154,10 @@ public class RockSaclay extends Applet {
             case INS_GET_SIGNATURE:
                 this.get_signature(buffer, apdu);
                 break;
+
+            case INS_GET_PUBLIC_KEY:
+                this.get_public_key(buffer, apdu);
+                break;
             
             case INS_DEBUG:
                 this.debug(buffer, apdu);
@@ -142,7 +174,7 @@ public class RockSaclay extends Applet {
         Util.setShort(buffer, (short)0, this.id);
         Util.setShort(buffer, (short)2, this.credits);
         buffer[4] = this.name_length;
-        Util.arrayCopy(this.name, (short)0,buffer,(short)5,(short)NAME_LENGTH );
+        Util.arrayCopy(this.name, (short)0,buffer,(short)5,(short)NAME_LENGTH);
         apdu.setOutgoingAndSend((short) 0, (short) 20);
     }
 
@@ -164,6 +196,11 @@ public class RockSaclay extends Applet {
         buffer[1] = this.pin.getTriesRemaining();
 
         apdu.setOutgoingAndSend((short) 0, (byte)2);
+    }
+
+    public void get_public_key(byte[] buffer, APDU apdu){
+        Util.arrayCopy(this.publickey, (short)0,buffer,(short)0, KeyBuilder.LENGTH_EC_FP_192 );
+        apdu.setOutgoingAndSend((short) 0, KeyBuilder.LENGTH_EC_FP_192);
     }
 
     public void get_signature(byte[] buffer, APDU apdu){
