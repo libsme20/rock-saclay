@@ -46,6 +46,7 @@ public class RockSaclay extends Applet {
     private Signature signature_transactions;
     private RSAPrivateKey privatekey;
     private RSAPublicKey publickey;
+    private short transactionId = 0;
     
     /* Constructeur */
     private RockSaclay(byte array[], short offset, byte length) {
@@ -88,12 +89,13 @@ public class RockSaclay extends Applet {
     }
 
     public byte[] sign_transaction(short idVendeur, short transaction_montant){
-        short bufferLength = Short.BYTES*3;
+        short bufferLength = Short.BYTES*4;
         byte[] buffer = new byte[bufferLength];
         byte[] signatureData = new byte[Signature.ALG_RSA_SHA_PKCS1_PSS];
         Util.setShort(buffer, (short) 0, idVendeur);
         Util.setShort(buffer, (short) Short.BYTES, transaction_montant);
         Util.setShort(buffer, (short) 4, this.id);
+	Util.setShort(buffer, (short) 6, this.transactionId);
         this.signature_transactions.sign(buffer, (short) 0, bufferLength, signatureData, (short) 0);
         return signatureData;
     }
@@ -245,6 +247,6 @@ public class RockSaclay extends Applet {
             ISOException.throwIt(SW_INSUFFICIENT_CREDITS);
         }
         this.credits -= debiter;
-
+	this.transactionId ++;
     }
 }
