@@ -52,7 +52,7 @@ class RockSaclayInstall():
         name = input_str("Donnez le nom: ", max_length=15, alphabet=alphabet)
 
         # Get Name
-        print(id, pin, name)
+        print("id",id, "- PIN",pin,"- nom", name)
         self.add_user(id, name)
         id = struct.pack("!H", id)
         pin = struct.pack("!H", pin)
@@ -106,11 +106,15 @@ if __name__ == "__main__":
         print("5) Quitter")
         choix = input_int("> ", min=1, max=5)
         if choix == 1:
+            print("Ajouter un utilisateur")
             client.install()
         elif choix ==2:
+            print("Consulter les utilisateurs")
             client.show_users()
         elif choix == 4:
+            print("Supprimer les utilisateurs")
             client.reset_users()
         elif choix == 5:
+            print("Quitter")
             break
         print()
