@@ -1,2 +1,1 @@
-1;nazime
-2;dragos
+1;smith

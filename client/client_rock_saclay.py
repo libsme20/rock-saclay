@@ -154,6 +154,46 @@ class ClientRockSaclay(object):
             sys.exit(0)
         print("Carte vérifiée")
 
+    def vendre(self):
+        # Vérifier si la carte est vérouillé
+        if not self.get_tries_remaning():
+            print("0 Essay restant, carte vérouillé")
+            sys.exit(1)
+        
+        # Insertion PIN
+        while True:
+            pin = input_int("Insérez votre code PIN: ", 0, 9999)
+            checked, attempt = self.check_pin(pin)
+            if checked:
+                print("code PIN bon")
+                break
+            # bad pin
+            if attempt:
+                print("code PIN faux, essaye restant", attempt)
+                continue
+            # no more pin
+            else:
+                print("0 Essay restant, carte vérouillé")
+                break
+        print()
+
+        # user information
+        print("---- information utilisateur ----")
+        print("id:", self.get_id())
+        print("nom:", self.get_name())
+        print("credits:", self.get_credits())
+        print()
+
+        # Debiter
+        print("---- debiter montant ----")
+        debit = input_int("Choisir montant à débiter: ", min=0, max=MAX_SHORT)
+        try:
+            self.debit_credits(debit)
+            print("Crédit restant", self.get_credits())
+        except SW_INSUFFICIENT_CREDITS:
+            print("Solde insufisant", self.get_credits())
+        print()
+
 
     
 class RoRockSaclayVente():
@@ -167,67 +207,22 @@ if __name__ == "__main__":
     while True:
         print("Choisir une action")
         print("1) Vendre à un client")
-        print("2) Consulter les utilisateurs")
-        print("3) Supprimer un utilisateur")
-        print("4) Supprimer les utilisateurs")
-        print("5) Quitter")
-        choix = input_int("> ", min=1, max=5)
+        print("2) Quitter")
+        choix = input_int("> ", min=1, max=2)
         if choix == 1:
-            client.install()
-        elif choix ==2:
-            client.show_users()
-        elif choix == 4:
-            client.reset_users()
-        elif choix == 5:
+            client = ClientRockSaclay()
+            client.wait_carte()
+            client.select()
+            client.verify()
+            client.vendre()
+        elif choix == 2:
             break
         print()
 
-    client = ClientRockSaclay()
-    client.wait_carte()
-    client.select()
-    client.verify()
-
-    # Vérifier si la carte est vérouillé
-    if not client.get_tries_remaning():
-        print("0 Essay restant, carte vérouillé")
-        sys.exit(1)
     
-    # Insertion PIN
-    while True:
-        pin = input_int("Insérez votre code PIN: ", 0, 9999)
-        checked, attempt = client.check_pin(pin)
-        if checked:
-            print("code PIN bon")
-            break
-        # bad pin
-        if attempt:
-            print("code PIN faux, essaye restant", attempt)
-            continue
-        # no more pin
-        else:
-            print("0 Essay restant, carte vérouillé")
-            break
-    print()
 
-    # user information
-    print("---- information utilisateur ----")
-    print("id:", client.get_id())
-    print("nom:", client.get_name())
-    print("credits:", client.get_credits())
-    print()
+    
 
-    # Debiter
-    print("---- debiter montant ----")
-    debit = input_int("Choisir montant à débiter: ", min=0, max=MAX_SHORT)
-    try:
-        client.debit_credits(debit)
-        print("Crédit restant", client.get_credits())
-    except SW_INSUFFICIENT_CREDITS:
-        print("Solde insufisant", client.get_credits())
-    print()
-
-    # client.test_debug()
-    sys.exit(0)
 
 
     
