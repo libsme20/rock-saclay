@@ -11,6 +11,7 @@ import javacard.security.KeyBuilder;
 import javacard.security.Signature;
 import javacard.security.RSAPrivateKey;
 import javacard.security.RSAPublicKey;
+import javacard.security.CryptoException;
 
 public class RockSaclay extends Applet {
     
@@ -26,6 +27,9 @@ public class RockSaclay extends Applet {
     public static final byte INS_GET_TRIES_REMAINING = 0x06;
     public static final byte INS_GET_SIGNATURE = 0x07;
     public static final byte INS_GET_PUBLIC_KEY = 0x08;
+    public static final byte INS_GET_TRANSACTION_ID = 0x09;
+    public static final byte INS_INTI_APPLET = 0x0a;
+    public static final byte INS_TEST_DEBUG = 0x7f;
     
     /* Exceptions */
     static final short SW_INSUFFICIENT_CREDITS = 0x7201;
@@ -44,9 +48,10 @@ public class RockSaclay extends Applet {
     private short credits;
     private short id;
     private byte[] signature = new byte[SIGNATURE_LENGTH];
-    private Signature signature_transactions;
+    private Signature signature_transactions=null;
     private RSAPrivateKey privatekey;
     private RSAPublicKey publickey;
+    private KeyPair keypair;
     private short transactionId = 0;
     
     /* Constructeur */
@@ -79,15 +84,12 @@ public class RockSaclay extends Applet {
         Util.arrayCopy(array, offset_param, this.signature, (short)0, SIGNATURE_LENGTH);
         offset_param += SIGNATURE_LENGTH;
 
-        KeyPair keypair = new KeyPair(KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1024);
-        privatekey = (RSAPrivateKey) keypair.getPrivate();
-        publickey = (RSAPublicKey) keypair.getPublic();
-        // Maybe false should be change,
-        this.signature_transactions = Signature.getInstance(
-                Signature.ALG_ECDSA_SHA,
-                false);
-        this.signature_transactions.init(privatekey, Signature.MODE_SIGN);
+        
+        //KeyPair keypair = new KeyPair(KeyPair.ALG_RSA, KeyBuilder.LENGTH_RSA_1024);
+        KeyPair keypair = new KeyPair(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024);
+        
     }
+    
 
     public byte[] sign_transaction(short idVendeur, short transaction_montant){
         short bufferLength = Short.BYTES*4;
@@ -121,6 +123,7 @@ public class RockSaclay extends Applet {
 
 
     public void process(APDU apdu) throws ISOException {
+        
         byte[] buffer = apdu.getBuffer();
         
         if (this.selectingApplet()) return;
@@ -128,7 +131,7 @@ public class RockSaclay extends Applet {
         if (buffer[ISO7816.OFFSET_CLA] != CLA_MONAPPLET) {
                 ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
         }
-    
+        
         switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_CHECK_PIN:
                 this.check_pin(buffer, apdu);
@@ -149,6 +152,10 @@ public class RockSaclay extends Applet {
             case INS_GET_CREDITS:
                 this.get_credits(buffer, apdu);
                 break;
+            
+            case INS_GET_TRANSACTION_ID:
+                this.get_transaction_id(buffer, apdu);
+                break;
 
             case INS_GET_TRIES_REMAINING:
                 this.get_tries_remaining(buffer ,apdu);
@@ -166,11 +173,37 @@ public class RockSaclay extends Applet {
                 this.debug(buffer, apdu);
                 break;
 
+            case INS_TEST_DEBUG:
+                this.test_debug(buffer, apdu);
+                break;
+
             default:
                 ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
         }
     }
 
+    public void init_applet(){
+        try {
+            if (this.signature_transactions != null){
+                return;
+            }
+            ISOException.throwIt((short)11);
+            this.privatekey = (RSAPrivateKey)(keypair.getPrivate());
+            
+            this.publickey = (RSAPublicKey) keypair.getPublic();
+            
+            // Maybe false should be change,
+            this.signature_transactions = Signature.getInstance(
+                Signature.ALG_ECDSA_SHA,
+                false
+            );
+            this.signature_transactions.init(privatekey, Signature.MODE_SIGN);
+       } catch (CryptoException e) {
+            short reason = e.getReason();
+            ISOException.throwIt(reason);
+       }
+        
+    }
     public void debug(byte[] buffer, APDU apdu){
         // TODO not in raw
         // 2 id 2 credits 1 length 15 names
@@ -179,6 +212,11 @@ public class RockSaclay extends Applet {
         buffer[4] = this.name_length;
         Util.arrayCopy(this.name, (short)0,buffer,(short)5,(short)NAME_LENGTH);
         apdu.setOutgoingAndSend((short) 0, (short) 20);
+    }
+
+    public void test_debug(byte[] buffer, APDU apdu){
+        
+       
     }
 
     public void is_authenticated() throws ISOException {
@@ -208,11 +246,11 @@ public class RockSaclay extends Applet {
 
     
     public void get_public_key(byte[] buffer, APDU apdu){
-	this.publickey.getExponent(buffer, (short) 0);
-	this.publickey.getModulus(buffer, (short) 2);
-        //Util.arrayCopy(this.publickey, (short)0,buffer,(short)0, KeyBuilder.LENGTH_EC_FP_192 );
-	short sizePK =  KeyBuilder.LENGTH_RSA_1024 + 2;
-	apdu.setOutgoingAndSend((short) 0, sizePK);
+        this.publickey.getExponent(buffer, (short) 0);
+        this.publickey.getModulus(buffer, (short) 2);
+            //Util.arrayCopy(this.publickey, (short)0,buffer,(short)0, KeyBuilder.LENGTH_EC_FP_192 );
+        short sizePK =  KeyBuilder.LENGTH_RSA_1024 + 2;
+        apdu.setOutgoingAndSend((short) 0, sizePK);
     }
     
 
@@ -242,6 +280,11 @@ public class RockSaclay extends Applet {
         apdu.setOutgoingAndSend((short) 0, (byte)2);
     }
 
+    public void get_transaction_id(byte[] buffer, APDU apdu){
+        this.is_authenticated();
+        Util.setShort(buffer, (short)0, this.transactionId);
+        apdu.setOutgoingAndSend((short) 0, (byte)2);
+    }
     public void debit_credits(byte[] buffer, APDU apdu){
         this.is_authenticated();
 
@@ -256,6 +299,6 @@ public class RockSaclay extends Applet {
             ISOException.throwIt(SW_INSUFFICIENT_CREDITS);
         }
         this.credits -= debiter;
-	this.transactionId ++;
+	    this.transactionId ++;
     }
 }

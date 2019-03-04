@@ -22,4 +22,40 @@ def s2a(string):
     """String to array."""
     return [ord(e) for e in string]
 
+def input_int(msg="", min=None, max=None):
+    # TODO accept negative number
+    while True:
+        x = input(msg)
+        if not x.isdigit():
+            print("Not a number")
+            continue
+        x = int(x)
+        if min and x < min:
+            print("Minimum", min)
+            continue
+        if max and x > max:
+            print("Minimum", max)
+            continue
+        break
+    return x
 
+def input_str(msg="", min_length=None, max_length=None, alphabet=None):
+    while True:
+        x = input(msg)
+        if min_length and len(x) < min_length:
+            print("Minimum length", min_length)
+            continue
+        if max_length and len(x) > max_length:
+            print("Maximum length", max_length)
+            continue
+        if alphabet:
+            good_alpha = True
+            for e in x:
+                if e not in alphabet:
+                    print("Bad character")
+                    good_alpha = False
+                    break
+            if not good_alpha:
+                continue
+        break
+    return x

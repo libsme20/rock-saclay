@@ -2,10 +2,12 @@
 import sys
 import string 
 import struct
+import os
+
 
 from ecdsa import SigningKey, NIST384p
 
-from util import debug, h2a, a2h
+from util import debug, h2a, a2h, input_int, input_str
 
 alphabet = string.ascii_letters
 
@@ -14,75 +16,101 @@ private_key_string = b'-----BEGIN EC PRIVATE KEY-----\nMIGkAgEBBDAfR/wtBhgTA36/C
 private_key= SigningKey.from_pem(private_key_string)
 
 
-def input_int(msg="", min=None, max=None):
-    while True:
-        x = input(msg)
+
+
+
+
+
+
+class RockSaclayInstall():
+    def __init__(self):
+        self.load_users()
+    
+    def load_users(self):
+        if os.path.isfile("users.txt"):
+            data = open("users.txt").read()
+            data = data.strip()
+            if data:
+                data = data.split("\n")
+                for i in range(len(data)):
+                    data[i] = data[i].split(";")
+            else:
+                data = []
+            self.users = data
+        else:
+            open("users.txt","w")
+            self.users = [] 
+    
+    def add_user(self, id, name):
+        self.users.append([id, name])
+        self.save_users()
+    
+    def install(self):
+        # Get ID
+        id = input_int("Donnez l'id: ", 1, 65535)
+        pin = input_int("Donnez le code PIN: ", 0, 9999)
+        name = input_str("Donnez le nom: ", max_length=15, alphabet=alphabet)
+
+        # Get Name
+        print(id, pin, name)
+        self.add_user(id, name)
+        id = struct.pack("!H", id)
+        pin = struct.pack("!H", pin)
+        name_length = struct.pack("B", len(name))
+        name = name.encode()
+        signature = private_key.sign(id+name)
+        args = id+pin+name_length+name+signature 
+        debug("signature", signature)
+        debug("param array", args)
+        args = a2h(args)
+        debug("param hex", args)
+
+        print("gp -v --install RockSaclay221.cap --params", args)
         
-def install():
-    print("Client Rock Saclay Installation Helper")
-    # Get ID
-    while True:
-        id = input("Donnez l'id: ")
-        if not id.isdigit():
-            print("Id doit être un numéro")
-            continue
-        id = int(id)
-        if id <0 or id > 65535:
-            print("Id doit etre entre 0 et 65535")
-            continue
-        break
-    
-    # Get PIN
-    while True:
-        pin = input("Donnez PIN: ")
-        if not pin.isdigit():
-            00+
-            print("PIN doit être un numéro")
-            continue
-        pin = int(pin)
-        if pin <0 or pin > 9999:
-            print("PIN doit etre entre 0 et 9999")
-            continue
-        break
-    
-    # Get Name
-    while True:
-        # Encoding?
-        name = input("Donnez le nom: ")
-        if len(name) >= 15:
-            print("Le nom doit pas depasser les 15 caractères")
-            continue
-        good_alpha = True
-        for e in name:
-            if e not in alphabet:
-                print("Le nom peut pas contenir des caractères spécieaux")
-                good_alpha = False
-                break
-        if not good_alpha:
-            continue
-        break
-    print(id, pin, name)
-    id = struct.pack("!H", id)
-    pin = struct.pack("!H", pin)
-    name_length = struct.pack("B", len(name))
-    name = name.encode()
-    signature = private_key.sign(id+name)
-    args = id+pin+name_length+name+signature
-    debug("signature", signature)
-    debug("param array", args)
-    args = a2h(args)
-    debug("param hex", args)
+        
 
-    print("gp -v --install RockSaclay221.cap --params", args)
-    exit()
+    def save_users(self):
+        f = open("users.txt", "w")
+        for user in self.users:
+            f.write(";".join(map(str,user))+"\n")
 
-import os
+    def reset_users(self):
+        self.users = []
+        open("users.txt", "w")
+    
+    def show_users(self):
+        if not self.users:
+            print("Aucune utilisateurs")
+            return
+        
+        print("-"*29)
+        print(f"| {'id':<8}| {'nom':<16}|")
+        print("-"*29)
+        for user in self.users:
+            print(f"| {user[0]:<8}| {user[1]:<16}|")
+        print("-"*29)
+
 
 if __name__ == "__main__":
-    if len(sys.argv) == 2  and sys.argv[1] == "install":
-        # install()
-        pass
-    # actions: install carte, 
-    print("Rock Saclay - Installation")
-    print("Inserez votre carte")
-    install()
+    # actions: install carte, consulter cartes, reset all, supprimer carte
+    print("---- Rock Saclay Installation ----")
+    client = RockSaclayInstall()
+    while True:
+        print("*"*50)
+        print("Choisir une action")
+        print("*"*50)
+        print("1) Ajouter un utilisateur")
+        print("2) Consulter les utilisateurs")
+        print("3) Supprimer un utilisateur")
+        print("4) Supprimer les utilisateurs")
+        print("5) Quitter")
+        choix = input_int("> ", min=1, max=5)
+        if choix == 1:
+            client.install()
+        elif choix ==2:
+            client.show_users()
+        elif choix == 4:
+            client.reset_users()
+        elif choix == 5:
+            break
+        print()

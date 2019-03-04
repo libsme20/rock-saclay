@@ -6,12 +6,20 @@ from ecdsa import VerifyingKey, BadSignatureError
 from smartcard.Exceptions import NoCardException
 from smartcard.System import readers
 
-from util import debug, h2a, a2h, a2s, s2a
+from util import debug, h2a, a2h, a2s, s2a, input_int
 
+MAX_SHORT = 2**16-1
 
 public_key_pem =b'-----BEGIN PUBLIC KEY-----\nMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE38NjBNRn/Pci2yVRa3CLnLUuI2JC/beh\n1y9TKV5YGp1v1QfBnZDSNHu5rQfy6hmaTer+DyoelapySUnPDjfjU2bWt/6z/yZD\n6uPKUr/AgDxz7oVqvF+OH6IM6CJ4d92F\n-----END PUBLIC KEY-----\n'
 public_key = VerifyingKey.from_pem(public_key_pem)
 
+class RockSaclayException(Exception):
+    pass
+
+class SW_INSUFFICIENT_CREDITS(RockSaclayException):
+    pass
+
+ 
 
 class ClientRockSaclay(object):
     # Const
@@ -27,10 +35,13 @@ class ClientRockSaclay(object):
     INS_GET_CREDITS = 0x05
     INS_GET_TRIES_REMAINING = 0x06
     INS_GET_SIGNATURE = 0x07
+    INS_GET_PUBLIC_KEY = 0x08
+    INS_GET_TRANSACTION_ID = 0x09
+    INS_TEST_DEBUG = 0x7f
 
     # Exceptions
     exceptions = {
-        0x7203: "SW_PIN_NOT_CHECKED"
+        0x7201:SW_INSUFFICIENT_CREDITS,
     }
 
     def __init__(self):
@@ -73,7 +84,7 @@ class ClientRockSaclay(object):
         if error_code != 0x9000:
             error_msg = f"Code error not OK code {hex(error_code)}"
             if error_code in ClientRockSaclay.exceptions:
-                error_msg += ", "+ClientRockSaclay.exceptions[error_code]
+                raise ClientRockSaclay.exceptions[error_code](error_msg)
             raise Exception(error_msg)
         debug("returned data", data)
         return data
@@ -127,6 +138,9 @@ class ClientRockSaclay(object):
         print("credits", credits)
         print("name length", name_length)
         print("name", name)
+    
+    def test_debug(self):
+        self.instruction(ClientRockSaclay.INS_TEST_DEBUG)
 
     def verify(self):
         id = struct.pack('!H', self.get_id())
@@ -142,34 +156,79 @@ class ClientRockSaclay(object):
 
 
     
+class RoRockSaclayVente():
+    def vendre(self):
+        pass
 
 if __name__ == "__main__":
-    print("--- Rock Saclay ----")
+    print("---- Rock Saclay Vente ----")
     print("Insérez votre carte")
+    vente = RoRockSaclayVente()
+    while True:
+        print("Choisir une action")
+        print("1) Vendre à un client")
+        print("2) Consulter les utilisateurs")
+        print("3) Supprimer un utilisateur")
+        print("4) Supprimer les utilisateurs")
+        print("5) Quitter")
+        choix = input_int("> ", min=1, max=5)
+        if choix == 1:
+            client.install()
+        elif choix ==2:
+            client.show_users()
+        elif choix == 4:
+            client.reset_users()
+        elif choix == 5:
+            break
+        print()
 
     client = ClientRockSaclay()
     client.wait_carte()
     client.select()
     client.verify()
+
+    # Vérifier si la carte est vérouillé
+    if not client.get_tries_remaning():
+        print("0 Essay restant, carte vérouillé")
+        sys.exit(1)
+    
+    # Insertion PIN
+    while True:
+        pin = input_int("Insérez votre code PIN: ", 0, 9999)
+        checked, attempt = client.check_pin(pin)
+        if checked:
+            print("code PIN bon")
+            break
+        # bad pin
+        if attempt:
+            print("code PIN faux, essaye restant", attempt)
+            continue
+        # no more pin
+        else:
+            print("0 Essay restant, carte vérouillé")
+            break
+    print()
+
+    # user information
+    print("---- information utilisateur ----")
+    print("id:", client.get_id())
+    print("nom:", client.get_name())
+    print("credits:", client.get_credits())
+    print()
+
+    # Debiter
+    print("---- debiter montant ----")
+    debit = input_int("Choisir montant à débiter: ", min=0, max=MAX_SHORT)
+    try:
+        client.debit_credits(debit)
+        print("Crédit restant", client.get_credits())
+    except SW_INSUFFICIENT_CREDITS:
+        print("Solde insufisant", client.get_credits())
+    print()
+
+    # client.test_debug()
     sys.exit(0)
 
-    pin = input("Insérez votre code PIN: ")
-    debug("test")
-    client = ClientRockSaclay()
-    client.select()
-    print("signature", client.get_signature())
-    print("verify", client.verify())
-    print(client.check_pin(5555))
-    #    print("bad signature: fake card !")
-    print(client.get_name())
-    print("id", client.get_id())
-    print("credits", client.get_credits())
-    client.debit_credits(20)
-    print("credits", client.get_credits())
-    print("tries remanging", client.get_tries_remaning())
-    print(client.check_pin(4444))
-    print(client.check_pin(5555))
-    print(client.check_pin(5555))
 
     
 
